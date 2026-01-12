@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Code Anzeige</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Der vollständige Code</h1>
+
+        <pre><code>
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import stft
+from scipy.interpolate import interp1d
+
+# =========================
+# PARAMETER
+# =========================
+FS = 500  # Samplingrate in Hz
+
+BANDS = {
+    "Delta": (0.5, 4),
+    "Theta": (4, 8),
+    "Alpha": (8, 13),
+    "Beta":  (13, 30),
+    "Gamma": (30, 45)
+}
+
+BAND_COLORS = {
+    "Delta": "tab:blue",
+    "Theta": "tab:orange",
+    "Alpha": "tab:green",
+    "Beta":  "tab:red",
+    "Gamma": "tab:purple"
+}
+
+# =========================
+# DATEN LADEN (CSV: index,value)
+# =========================
+data = np.loadtxt("Test3.csv", delimiter=",", skiprows=1)  # Header überspringen
+signal = data[:, 1]
+
+# DC-Offset entfernen
+signal = signal - np.mean(signal)
+
+# Zeitachse
+time = np.arange(len(signal)) / FS
+
+# =========================
+# ZEIT-FREQUENZ-ANALYSE (STFT)
+# =========================
+f, t_stft, Zxx = stft(signal, fs=FS, nperseg=128, noverlap=64)
+power = np.abs(Zxx) ** 2
+
+# =========================
+# BANDPOWER
+# =========================
+band_power = {}
+for band, (low, high) in BANDS.items():
+    idx = np.logical_and(f >= low, f <= high)
+    band_power[band] = power[idx, :].mean(axis=0)
+
+# Interpolation auf die echte Zeitachse
+band_power_interp = {}
+for band in BANDS:
+    f_interp = interp1d(t_stft, band_power[band], kind='linear', fill_value="extrapolate")
+    band_power_interp[band] = f_interp(time)
+
+
+
+# =========================
+# PLOTS
+# =========================
+
+# 1️⃣ Rohsignal
+plt.figure(figsize=(14,4))
+plt.plot(time, signal, linewidth=0.8)
+plt.title("EEG-Rohsignal")
+plt.xlabel("Zeit (s)")
+plt.ylabel("Amplitude")
+plt.grid(True)
+plt.show()
+
+# 2️⃣ Bandpower in separaten Graphen mit Farben
+fig, axes = plt.subplots(len(BANDS), 1, figsize=(14, 10), sharex=True)
+for ax, (band, power_values) in zip(axes, band_power_interp.items()):
+    ax.plot(time, power_values, label=f"{band}-Band", color=BAND_COLORS[band])
+    ax.set_ylabel("Leistung")
+    ax.set_title(f"{band}-Band")
+    ax.grid(True)
+axes[-1].set_xlabel("Zeit (s)")
+plt.tight_layout()
+plt.show()
+
+
+
+# Beta/Theta+Alpha
+concentration_index = band_power_interp["Beta"] / (band_power_interp["Theta"] + band_power_interp["Alpha"])
+
+# Plot
+plt.figure(figsize=(14,3))
+plt.plot(time, concentration_index, color="tab:red")
+plt.title("Konzentrations-Index (Beta / (Theta + Alpha))")
+plt.xlabel("Zeit (s)")
+plt.ylabel("Index")
+plt.grid(True)
+
+
+mean_index = np.mean(concentration_index)
+print("Durchschnittlicher Konzentrations-Index:", mean_index)
+
+plt.text(
+    x=time[-1],                  # rechts am Ende der Zeitachse
+    y=max(concentration_index)*0.9,  # fast oben im Plot
+    s=f"Durchschnitt: {mean_index:.2f}",
+    color="black",
+    fontsize=12,
+    ha="right",
+    va="top",
+    bbox=dict(facecolor='white', alpha=0.7, edgecolor='gray')
+)
+
+plt.show()
+
+        </code></pre>
+    </div>
+
+</body>
+</html>
