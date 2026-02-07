@@ -19,7 +19,7 @@ from scipy.interpolate import interp1d
 
 
 # PARAMETER
-FS = 500  # Samplingrate in Hz
+FS = 500  # Samplingrate
 
 BANDS = {
     "Delta": (0.5, 4),
@@ -42,7 +42,7 @@ BAND_COLORS = {
 data = np.loadtxt("Test3.csv", delimiter=",", skiprows=1)  # Header überspringen
 signal = data[:, 1]
 
-# DC-Offset entfernen
+# DC-Offset
 signal = signal - np.mean(signal)
 
 # Zeitachse
@@ -60,7 +60,7 @@ for band, (low, high) in BANDS.items():
     idx = np.logical_and(f >= low, f <= high)
     band_power[band] = power[idx, :].mean(axis=0)
 
-# Interpolation auf die echte Zeitachse
+# Interpolation
 band_power_interp = {}
 for band in BANDS:
     f_interp = interp1d(t_stft, band_power[band], kind='linear', fill_value="extrapolate")
@@ -109,8 +109,8 @@ mean_index = np.mean(concentration_index)
 print("Durchschnittlicher Konzentrations-Index:", mean_index)
 
 plt.text(
-    x=time[-1],                  # rechts am Ende der Zeitachse
-    y=max(concentration_index)*0.9,  # fast oben im Plot
+    x=time[-1],                  
+    y=max(concentration_index)*0.9,  
     s=f"Durchschnitt: {mean_index:.2f}",
     color="black",
     fontsize=12,
@@ -126,6 +126,7 @@ plt.show()
 
 </body>
 </html>
+
 
 
 
