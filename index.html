@@ -16,7 +16,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import stft
 from scipy.interpolate import interp1d
-
+from scipy.signal import butter, filtfilt
+from scipy.signal import iirnotch
+from scipy.signal import medfilt
+from scipy.ndimage import gaussian_filter1d
 
 # PARAMETER
 FS = 500  # Samplingrate
@@ -37,16 +40,52 @@ BAND_COLORS = {
     "Gamma": "tab:purple"
 }
 
+# function_bandpass
+def bandpass_filter(signal, fs, low=0.5, high=45, order=4):
+    nyq = 0.5 * fs
+    low = low / nyq
+    high = high / nyq
+    b, a = butter(order, [low, high], btype='band')
+    return filtfilt(b, a, signal)
 
-# DATEN LADEN 
-data = np.loadtxt("Test3.csv", delimiter=",", skiprows=1)  # Header überspringen
+
+#function_notch
+def notch_filter(signal, fs, freq=50, Q=30):
+    b, a = iirnotch(freq, Q, fs)
+    return filtfilt(b, a, signal)
+
+
+
+
+# DATEN LADEN
+data = np.loadtxt("Papa\Thomas_5_Traubenzucker.csv", delimiter=",", skiprows=1)
 signal = data[:, 1]
 
 # DC-Offset
 signal = signal - np.mean(signal)
 
+# bandpass
+signal = bandpass_filter(signal, FS)
+
+#notchfilter
+signal = notch_filter(signal, FS)
+
+#medfilt
+signal = medfilt(signal, kernel_size=5)
+
 # Zeitachse
 time = np.arange(len(signal)) / FS
+
+# Artefakte entfernen
+z = (signal - np.mean(signal)) / np.std(signal)
+artifact_mask = np.abs(z) > 4
+
+signal[artifact_mask] = np.nan
+
+valid = ~np.isnan(signal)
+interp = interp1d(time[valid], signal[valid], fill_value="extrapolate")
+signal = interp(time)
+
 
 
 # ZEIT-FREQUENZ-ANALYSE
@@ -65,6 +104,7 @@ band_power_interp = {}
 for band in BANDS:
     f_interp = interp1d(t_stft, band_power[band], kind='linear', fill_value="extrapolate")
     band_power_interp[band] = f_interp(time)
+    
 
 
 
@@ -96,6 +136,17 @@ plt.show()
 # Konzentrationsindex
 concentration_index = band_power_interp["Beta"] / (band_power_interp["Theta"] + band_power_interp["Alpha"])
 
+z = (concentration_index - np.mean(concentration_index)) / np.std(concentration_index)
+artifact_mask = np.abs(z) > 3
+
+concentration_index[artifact_mask] = np.nan
+valid = ~np.isnan(concentration_index)
+interp = interp1d(time[valid], concentration_index[valid], fill_value="extrapolate")
+concentration_index = interp(time)
+
+#glätten
+concentration_index = gaussian_filter1d(concentration_index, sigma=3)
+
 # Plot
 plt.figure(figsize=(14,3))
 plt.plot(time, concentration_index, color="tab:red")
@@ -121,11 +172,13 @@ plt.text(
 
 plt.show()
 
+
         </code></pre>
     </div>
 
 </body>
 </html>
+
 
 
 
